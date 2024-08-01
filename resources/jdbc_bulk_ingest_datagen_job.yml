@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    jdbc_bulk_ingest_source_datagen:
+      name: JDBC Bulk Ingest Datagen
+      tasks:
+        - task_key: generate_src_table
+          existing_cluster_id: ${var.existing_cluster_id}
+          webhook_notifications: {}
+          notebook_task:
+            notebook_path: ../src/generate_src_data.py
+            source: WORKSPACE
+          run_if: ALL_SUCCESS
+      queue:
+        enabled: true
+      description: Generate source table for testing the JDBC Bulk Ingest job
+      max_concurrent_runs: 1
+      parameters:
+        - default: main
+          name: catalog
+        - default: chris_koester
+          name: schema
+        - default: partitioned_queries_src
+          name: src_table

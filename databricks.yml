@@ -6,6 +6,11 @@ bundle:
 include:
   - resources/*.yml
 
+variables:
+  existing_cluster_id:
+    description: The ID of an existing cluster.
+    default: 0729-212854-o3mbohsl
+
 targets:
   # The 'dev' target, for development purposes. This target is the default.
   dev:

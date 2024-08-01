@@ -4,16 +4,13 @@ resources:
       name: JDBC Bulk Ingest
       tasks:
         - task_key: get_query_list
-          existing_cluster_id: 0729-212854-o3mbohsl
-          webhook_notifications: {}
-          email_notifications: {}
+          existing_cluster_id: ${var.existing_cluster_id}
           run_if: ALL_SUCCESS
-          notification_settings: {}
           notebook_task:
             notebook_path: ../src/get_query_list.ipynb
             source: WORKSPACE
         - task_key: create_tgt_table
-          existing_cluster_id: 0729-212854-o3mbohsl
+          existing_cluster_id: ${var.existing_cluster_id}
           depends_on:
             - task_key: get_query_list
           notebook_task:
@@ -32,19 +29,15 @@ resources:
             op: EQUAL_TO
             right: sql
             left: '{{job.parameters.lang}}'
-          webhook_notifications: {}
           run_if: ALL_SUCCESS
         - task_key: run_queries_sql
           depends_on:
             - outcome: "true"
               task_key: if_sql
-          notification_settings: {}
-          webhook_notifications: {}
           for_each_task:
             concurrency: 8
             inputs: '{{tasks.get_query_list.values.partition_queries}}'
             task:
-              notification_settings: {}
               run_if: ALL_SUCCESS
               task_key: run_query_sql
               notebook_task:
@@ -53,37 +46,28 @@ resources:
                 notebook_path: ../src/run_query_sql.sql
                 source: WORKSPACE
                 warehouse_id: d1184b8c2a8a87eb
-              webhook_notifications: {}
-              email_notifications: {}
               max_retries: 3
               min_retry_interval_millis: 0
-          email_notifications: {}
           run_if: ALL_SUCCESS
         - task_key: run_queries_py
           depends_on:
             - outcome: "false"
               task_key: if_sql
-          email_notifications: {}
-          notification_settings: {}
           run_if: ALL_SUCCESS
           for_each_task:
             concurrency: 8
             inputs: '{{tasks.get_query_list.values.partition_queries}}'
             task:
               task_key: run_query_py
-              notification_settings: {}
-              email_notifications: {}
               notebook_task:
                 base_parameters:
                   qry: '{{input.full_query}}'
                 notebook_path: ../src/run_query_py.ipynb
                 source: WORKSPACE
-              existing_cluster_id: 0729-212854-o3mbohsl
+              existing_cluster_id: ${var.existing_cluster_id}
               run_if: ALL_SUCCESS
-              webhook_notifications: {}
               max_retries: 3
               min_retry_interval_millis: 0
-          webhook_notifications: {}
       max_concurrent_runs: 1
       parameters:
         - default: sql
@@ -96,7 +80,5 @@ resources:
           name: src_table
         - default: partitioned_queries_tgt
           name: tgt_table
-      webhook_notifications: {}
-      email_notifications: {}
       queue:
         enabled: false
