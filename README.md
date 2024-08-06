@@ -1,6 +1,6 @@
 # JDBC Bulk Ingest
 
-Provides a mechanism for ingesting very large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html) or [JDBC](https://docs.databricks.com/en/connect/external-systems/jdbc.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallism.
+Provides a mechanism for ingesting very large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html) or [JDBC](https://docs.databricks.com/en/connect/external-systems/jdbc.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallism in a Databricks Job foreach task.
 
 ![JDBC bulk ingest diagram](assets/jdbc_bulk_ingest_diagram.png "JDBC bulk ingest diagram")
 
