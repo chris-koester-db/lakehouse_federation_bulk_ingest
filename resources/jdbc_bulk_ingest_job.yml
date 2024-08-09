@@ -70,7 +70,7 @@ resources:
               min_retry_interval_millis: 0
       max_concurrent_runs: 1
       parameters:
-        - default: sql
+        - default: python
           name: lang
         - default: ckoester_sql_server
           name: src_catalog

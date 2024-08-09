@@ -166,7 +166,7 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
             whereClause = f'{uBound} or {partition_column} is null'
         else:
             whereClause = f'{lBound} and {uBound}'
-        queryList.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'src_query' : f'select * from {catalog}.{schema}.{table} where {whereClause}'})
+        queryList.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
         i = i + 1
         
     return queryList
