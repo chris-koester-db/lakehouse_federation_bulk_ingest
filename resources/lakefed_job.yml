@@ -1,0 +1,121 @@
+resources:
+  jobs:
+    lakehouse_federation_ingest_lvl1:
+      name: "Lakehouse Federation Ingest Lvl1"
+      tasks:
+        - task_key: get_partition_list
+          notebook_task:
+            notebook_path: ../src/get_partition_list.ipynb
+            source: WORKSPACE
+          existing_cluster_id: ${var.existing_cluster_id}
+        - task_key: create_tgt_table
+          depends_on:
+            - task_key: get_partition_list
+          notebook_task:
+            notebook_path: ../src/create_tgt_table.ipynb
+            base_parameters:
+              catalog: "{{job.parameters.tgt_catalog}}"
+              schema: "{{job.parameters.tgt_schema}}"
+              tgt_table: "{{job.parameters.tgt_table}}"
+            source: WORKSPACE
+          existing_cluster_id: ${var.existing_cluster_id}
+        - task_key: run_batch_pipelines
+          depends_on:
+            - task_key: create_tgt_table
+          for_each_task:
+            inputs: "{{tasks.get_partition_list.values.batch_list}}"
+            concurrency: 1
+            task:
+              task_key: run_lvl2_pipeline
+              run_job_task:
+                job_id: ${resources.jobs.lakehouse_federation_ingest_lvl2.id}
+                job_parameters:
+                  batch_id: "{{input}}"
+      tags:
+        dev: chris_koester
+      queue:
+        enabled: false
+      parameters:
+        - name: lang
+          default: python
+        - name: src_catalog
+          default: ckoester_sql_server
+        - name: src_schema
+          default: dbo
+        - name: src_table
+          default: partitioned_queries_src
+        - name: tgt_catalog
+          default: main
+        - name: tgt_schema
+          default: chris_koester
+        - name: tgt_table
+          default: partitioned_queries_tgt
+        - name: partition_col
+          default: customer_id
+      edit_mode: EDITABLE
+    lakehouse_federation_ingest_lvl2:
+      name: "Lakehouse Federation Ingest Lvl2"
+      tasks:
+        - task_key: get_batch_of_partitions
+          notebook_task:
+            notebook_path: ../src/get_batch_of_partitions.ipynb
+            source: WORKSPACE
+          existing_cluster_id: ${var.existing_cluster_id}
+        - task_key: if_sql
+          depends_on:
+            - task_key: get_batch_of_partitions
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.parameters.lang}}"
+            right: sql
+        - task_key: run_queries_sql_placeholder
+          depends_on:
+            - task_key: if_sql
+              outcome: "true"
+          for_each_task:
+            inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
+            concurrency: 8
+            task:
+              task_key: run_query_sql_placeholder
+              notebook_task:
+                notebook_path: ../src/run_query_sql.sql
+                source: WORKSPACE
+                warehouse_id: ${var.existing_warehouse_id}
+              max_retries: 3
+              min_retry_interval_millis: 0
+        - task_key: run_queries_py
+          depends_on:
+            - task_key: if_sql
+              outcome: "false"
+          for_each_task:
+            inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
+            concurrency: 8
+            task:
+              task_key: run_query_py
+              notebook_task:
+                notebook_path: ../src/run_query_py.ipynb
+                source: WORKSPACE
+              existing_cluster_id: ${var.existing_cluster_id}
+              max_retries: 3
+              min_retry_interval_millis: 0
+      tags:
+        dev: chris_koester
+      queue:
+        enabled: false
+      parameters:
+        - name: lang
+          default: python
+        - name: src_catalog
+          default: ckoester_sql_server
+        - name: src_schema
+          default: dbo
+        - name: src_table
+          default: partitioned_queries_src
+        - name: tgt_catalog
+          default: main
+        - name: tgt_schema
+          default: chris_koester
+        - name: tgt_table
+          default: partitioned_queries_tgt
+        - name: batch_id
+          default: ""

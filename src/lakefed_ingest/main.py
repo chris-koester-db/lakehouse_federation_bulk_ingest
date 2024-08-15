@@ -1,6 +1,8 @@
 from databricks.connect.session import DatabricksSession
 from pyspark.sql import SparkSession
 import textwrap
+import pyspark.sql.functions as F
+import math
 
 # Create a new Databricks Connect session. If this fails,
 # check that you have configured Databricks Connect correctly.
@@ -119,7 +121,7 @@ def get_partition_spec_sqlserver(catalog, schema, table, partition_col, partitio
 
     return partition_spec
 
-def generate_partition_queries(catalog, schema, table, partition_column, lower_bound:int, upper_bound:int, num_partitions:int) -> list[dict]:
+def get_partition_list(partition_column, lower_bound:int, upper_bound:int, num_partitions:int) -> list[dict]:
     """Generate list of queries based on partitioning schematic
     
     Function is derived from the JDBC partitioning code in Spark:
@@ -137,9 +139,6 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
     Spark source code - https://github.com/apache/spark/blob/7bbcbb84c266b6ff418cd2c3361aa7350299d0ae/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/jdbc/JDBCRelation.scala#L129
     
     Args:
-        catalog (str): Catalog name
-        schema (str): Schema name
-        table (str): Table name
         partition_column (str): Column used to generate partition queries. Using a primary key column is recommended.
         lower_bound (str): Lowest partition column value
         upper_bound (str): Higest partition column value
@@ -149,7 +148,7 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
         list[dict]: List of dicts containing lower_bound, upper_bound, and src_query
     """
 
-    queryList = []
+    partition_list = []
     stride = int(upper_bound / num_partitions - lower_bound / num_partitions)
     
     i = 0
@@ -166,7 +165,26 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
             whereClause = f'{uBound} or {partition_column} is null'
         else:
             whereClause = f'{lBound} and {uBound}'
-        queryList.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
+        partition_list.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
         i = i + 1
         
-    return queryList
+    return partition_list
+
+def partition_list_to_table(partition_list:list[dict], tbl_name:str, num_partitions:int) -> None:
+    """Write partition list to table
+
+    Partitions are defined by a where clause that selects a range of data
+    
+    Args:
+        partition_list (list[dict]): List of dictionaries containing partition ranges
+        tbl_name (str): Table name
+        num_partitions (int): Number of partitions
+    """
+    
+    # Calculate number of 500 row batches and round up
+    num_batches = math.ceil(num_partitions / 500)
+    print(f'num_batches: {num_batches}')
+    
+    df = spark.createDataFrame(partition_list) # type: ignore
+    df = df.withColumn("batch_id", F.expr(f"ntile({num_batches}) over (order by lower_bound) as batch_id"))
+    df.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(tbl_name)
