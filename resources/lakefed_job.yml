@@ -19,7 +19,7 @@ resources:
               tgt_table: "{{job.parameters.tgt_table}}"
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
-        - task_key: run_batch_pipelines
+        - task_key: foreach_batch
           depends_on:
             - task_key: create_tgt_table
           for_each_task:
@@ -79,6 +79,8 @@ resources:
               task_key: run_query_sql_placeholder
               notebook_task:
                 notebook_path: ../src/run_query_sql.sql
+                base_parameters:
+                  where_clause: "{{input}}"
                 source: WORKSPACE
                 warehouse_id: ${var.existing_warehouse_id}
               max_retries: 3
@@ -94,6 +96,8 @@ resources:
               task_key: run_query_py
               notebook_task:
                 notebook_path: ../src/run_query_py.ipynb
+                base_parameters:
+                  where_clause: "{{input}}"
                 source: WORKSPACE
               existing_cluster_id: ${var.existing_cluster_id}
               max_retries: 3
