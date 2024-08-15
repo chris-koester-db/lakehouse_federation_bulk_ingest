@@ -1,6 +1,8 @@
 from databricks.connect.session import DatabricksSession
 from pyspark.sql import SparkSession
 import textwrap
+import pyspark.sql.functions as F
+import math
 
 # Create a new Databricks Connect session. If this fails,
 # check that you have configured Databricks Connect correctly.
@@ -34,8 +36,6 @@ def _get_partition_boundaries(catalog, schema, table, partition_col) -> tuple[in
     partition_boundaries_df = spark.sql(partition_boundaries_qry)
     lower_bound = partition_boundaries_df.collect()[0]["lower_bound"]
     upper_bound = partition_boundaries_df.collect()[0]["upper_bound"]
-    print(f'lower_bound: {lower_bound}')
-    print(f'upper_bound: {upper_bound}')
     
     return lower_bound, upper_bound
 
@@ -54,7 +54,7 @@ def get_partition_spec_delta(catalog, schema, table, partition_col, partition_si
     # Get table size
     table_size_in_bytes = spark.sql(f'desc detail {catalog}.{schema}.{table}').collect()[0]['sizeInBytes']
     table_size_mb = table_size_in_bytes / 1024 / 1024
-    print(f'table_size_mb: {table_size_mb}')
+    print(f'Table size MB: {table_size_mb}')
     
     # Get partition boundaries
     lower_bound, upper_bound = _get_partition_boundaries(catalog, schema, table, partition_col)
@@ -101,15 +101,15 @@ def get_partition_spec_sqlserver(catalog, schema, table, partition_col, partitio
     GROUP BY
         t.Name, s.Name, p.Rows
     """
-    print(f'table_size_qry:\n{textwrap.dedent(table_size_qry)}')
-    table_size = spark.sql(table_size_qry).collect()[0][0]
-    print(f'table_size_mb: {table_size}')
+    print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
+    table_size_mb = spark.sql(table_size_qry).collect()[0][0]
+    print(f'Table size MB: {table_size_mb}')
     
     # Get partition boundaries
     lower_bound, upper_bound = _get_partition_boundaries(catalog, schema, table, partition_col)
 
     # Get number of partitions
-    num_partitions = int(table_size / partition_size_mb)
+    num_partitions = int(table_size_mb / partition_size_mb)
 
     partition_spec = {
         'lower_bound': lower_bound,
@@ -119,7 +119,7 @@ def get_partition_spec_sqlserver(catalog, schema, table, partition_col, partitio
 
     return partition_spec
 
-def generate_partition_queries(catalog, schema, table, partition_column, lower_bound:int, upper_bound:int, num_partitions:int) -> list[dict]:
+def get_partition_list(partition_column, lower_bound:int, upper_bound:int, num_partitions:int) -> list[dict]:
     """Generate list of queries based on partitioning schematic
     
     Function is derived from the JDBC partitioning code in Spark:
@@ -137,9 +137,6 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
     Spark source code - https://github.com/apache/spark/blob/7bbcbb84c266b6ff418cd2c3361aa7350299d0ae/sql/core/src/main/scala/org/apache/spark/sql/execution/datasources/jdbc/JDBCRelation.scala#L129
     
     Args:
-        catalog (str): Catalog name
-        schema (str): Schema name
-        table (str): Table name
         partition_column (str): Column used to generate partition queries. Using a primary key column is recommended.
         lower_bound (str): Lowest partition column value
         upper_bound (str): Higest partition column value
@@ -149,7 +146,7 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
         list[dict]: List of dicts containing lower_bound, upper_bound, and src_query
     """
 
-    queryList = []
+    partition_list = []
     stride = int(upper_bound / num_partitions - lower_bound / num_partitions)
     
     i = 0
@@ -166,7 +163,32 @@ def generate_partition_queries(catalog, schema, table, partition_column, lower_b
             whereClause = f'{uBound} or {partition_column} is null'
         else:
             whereClause = f'{lBound} and {uBound}'
-        queryList.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
+        partition_list.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
         i = i + 1
         
-    return queryList
+    return partition_list
+
+def partition_list_to_table(partition_list:list[dict], tbl_name:str, num_partitions:int, batch_size:int = 500) -> None:
+    """Write partition list to table
+
+    Partitions are defined by a where clause that selects a range of data.
+    A batch_id is assigned to each partition. This provides a way of
+    dividing the full partition table into N size batches.
+    
+    The batch size can be set avoid the 48 KiB limit of taskValues.
+    # https://docs.databricks.com/en/jobs/share-task-context.html
+    
+    Args:
+        partition_list (list[dict]): List of dictionaries containing partition ranges
+        tbl_name (str): Table name
+        num_partitions (int): Number of partitions is used to determing the number of batches
+        batch_size (int): Desired batch size
+    """
+    
+    # Calculate number of batches and round up
+    num_batches = math.ceil(num_partitions / batch_size)
+    print(f'num_batches: {num_batches}')
+    
+    df = spark.createDataFrame(partition_list) # type: ignore
+    df = df.withColumn("batch_id", F.expr(f"ntile({num_batches}) over (order by lower_bound) as batch_id"))
+    df.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(tbl_name)

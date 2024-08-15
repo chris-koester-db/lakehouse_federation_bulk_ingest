@@ -2,7 +2,7 @@
 
 Provides a mechanism for ingesting very large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallelism in a Databricks Job foreach task.
 
-![JDBC bulk ingest diagram](assets/jdbc_bulk_ingest_diagram.png "JDBC bulk ingest diagram")
+![Lakehouse Federation ingest diagram](assets/lakefed_ingest_diagram.png "Lakehouse Federation ingest diagram")
 
 ## Getting started
 
@@ -22,7 +22,7 @@ Provides a mechanism for ingesting very large tables into Databricks via [Lakeho
 
     This deploys everything that's defined for this project.
     For example, the default template would deploy a job called
-    `[dev yourname] jdbc_bulk_ingest_job` to your workspace.
+    `[dev yourname] lakefed_ingest_job` to your workspace.
     You can find that job by opening your workpace and clicking on **Workflows**.
 
 4. Similarly, to deploy a production copy, type:
@@ -31,7 +31,7 @@ Provides a mechanism for ingesting very large tables into Databricks via [Lakeho
    ```
 
    Note that the default job from the template has a schedule that runs every day
-   (defined in resources/jdbc_bulk_ingest_job.yml). The schedule
+   (defined in resources/lakefed_ingest_job.yml). The schedule
    is paused when deploying in development mode (see
    https://docs.databricks.com/dev-tools/bundles/deployment-modes.html).
 

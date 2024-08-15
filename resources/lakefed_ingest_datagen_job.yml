@@ -1,7 +1,7 @@
 resources:
   jobs:
-    jdbc_bulk_ingest_source_datagen:
-      name: JDBC Bulk Ingest Datagen
+    lakefed_ingest_source_datagen:
+      name: Lakehouse Federation Ingest Datagen
       tasks:
         - task_key: generate_src_table
           existing_cluster_id: ${var.existing_cluster_id}
@@ -12,7 +12,7 @@ resources:
           run_if: ALL_SUCCESS
       queue:
         enabled: true
-      description: Generate source table for testing the JDBC Bulk Ingest job
+      description: Generate source table for testing the Lakehouse Federation Ingest job
       max_concurrent_runs: 1
       parameters:
         - default: main

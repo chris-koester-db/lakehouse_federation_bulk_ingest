@@ -1,15 +1,18 @@
-# This is a Databricks asset bundle definition for jdbc_bulk_ingest.
+# This is a Databricks asset bundle definition for lakefed_ingest.
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: jdbc_bulk_ingest
+  name: lakefed_ingest
 
 include:
   - resources/*.yml
 
 variables:
   existing_cluster_id:
-    description: The ID of an existing cluster.
+    description: The ID of an existing cluster
     default: 0729-212854-o3mbohsl
+  existing_warehouse_id:
+    description: The ID of an existing warehouse
+    default: d1184b8c2a8a87eb
 
 targets:
   # The 'dev' target, for development purposes. This target is the default.
