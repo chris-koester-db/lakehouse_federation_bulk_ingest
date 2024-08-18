@@ -38,21 +38,26 @@ resources:
       parameters:
         - name: lang
           default: python
+        - name: src_type
+          default: sqlserver
         - name: src_catalog
           default: ckoester_sql_server
         - name: src_schema
           default: dbo
         - name: src_table
           default: partitioned_queries_src
+        - name: partition_col
+          default: customer_id
+        - name: partition_size_mb
+          default: 256
+        - name: concurrency
+          default: 8
         - name: tgt_catalog
           default: main
         - name: tgt_schema
           default: chris_koester
         - name: tgt_table
           default: partitioned_queries_tgt
-        - name: partition_col
-          default: customer_id
-      edit_mode: EDITABLE
     lakehouse_federation_ingest_lvl2:
       name: "Lakehouse Federation Ingest Lvl2"
       tasks:
@@ -115,6 +120,8 @@ resources:
           default: dbo
         - name: src_table
           default: partitioned_queries_src
+        - name: concurrency
+          default: 8
         - name: tgt_catalog
           default: main
         - name: tgt_schema
