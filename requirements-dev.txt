@@ -25,4 +25,4 @@ wheel
 ## to install the package system-wide. Or uncomment the line below to install a
 ## version of db-connect that corresponds to the Databricks Runtime version used
 ## for this project.
-databricks-connect>=13.3,<13.4
+databricks-connect>=14.3,<14.4

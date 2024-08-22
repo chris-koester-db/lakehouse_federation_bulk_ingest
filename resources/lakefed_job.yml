@@ -36,8 +36,6 @@ resources:
       queue:
         enabled: false
       parameters:
-        - name: lang
-          default: python
         - name: src_type
           default: sqlserver
         - name: src_catalog
@@ -50,8 +48,6 @@ resources:
           default: customer_id
         - name: partition_size_mb
           default: 256
-        - name: concurrency
-          default: 8
         - name: tgt_catalog
           default: main
         - name: tgt_schema
@@ -66,34 +62,9 @@ resources:
             notebook_path: ../src/get_batch_of_partitions.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
-        - task_key: if_sql
-          depends_on:
-            - task_key: get_batch_of_partitions
-          condition_task:
-            op: EQUAL_TO
-            left: "{{job.parameters.lang}}"
-            right: sql
-        - task_key: run_queries_sql_placeholder
-          depends_on:
-            - task_key: if_sql
-              outcome: "true"
-          for_each_task:
-            inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
-            concurrency: 8
-            task:
-              task_key: run_query_sql_placeholder
-              notebook_task:
-                notebook_path: ../src/run_query_sql.sql
-                base_parameters:
-                  where_clause: "{{input}}"
-                source: WORKSPACE
-                warehouse_id: ${var.existing_warehouse_id}
-              max_retries: 3
-              min_retry_interval_millis: 0
         - task_key: run_queries_py
           depends_on:
-            - task_key: if_sql
-              outcome: "false"
+            - task_key: get_batch_of_partitions
           for_each_task:
             inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
             concurrency: 8
