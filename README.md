@@ -1,6 +1,6 @@
 # Lakehouse Federation Bulk Ingest
 
-Provides a mechanism for ingesting very large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallelism in a Databricks Job foreach task.
+Provides a mechanism for ingesting large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallelism in a Databricks Job foreach task.
 
 ![Lakehouse Federation ingest diagram](assets/lakefed_ingest_diagram.png "Lakehouse Federation ingest diagram")
 
