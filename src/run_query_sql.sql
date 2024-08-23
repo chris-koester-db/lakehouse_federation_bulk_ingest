@@ -1,7 +1,9 @@
 -- Databricks notebook source
--- Placeholder SQL notebook - this is not currently functional
--- Runs any query passed as a parameter
-declare or replace variable qry string;
-set var qry = :qry;
+-- Placeholder notebook for DBSQL compute. Has not been fully tested.
+declare or replace qry_str string;
+set var qry_str =
+    'insert into `' || :tgt_catalog || '`. `' || :tgt_schema || '`. `' || :tgt_table || '`'
+    'select * from `' || :src_catalog || '`. `' || :src_schema || '`. `' || :src_table || '`'
+    'where ' || :where_clause;
 
-execute immediate qry;
+execute immediate qry_str;

@@ -62,20 +62,20 @@ resources:
             notebook_path: ../src/get_batch_of_partitions.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
-        - task_key: run_queries_py
+        - task_key: foreach_partition
           depends_on:
             - task_key: get_batch_of_partitions
           for_each_task:
             inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
             concurrency: 8
             task:
-              task_key: run_query_py
+              task_key: run_query
               notebook_task:
-                notebook_path: ../src/run_query_py.ipynb
+                notebook_path: ../src/run_query_sql.sql
                 base_parameters:
                   where_clause: "{{input}}"
                 source: WORKSPACE
-              existing_cluster_id: ${var.existing_cluster_id}
+                existing_cluster_id: ${var.existing_cluster_id}
               max_retries: 3
               min_retry_interval_millis: 0
       tags:
@@ -83,16 +83,12 @@ resources:
       queue:
         enabled: false
       parameters:
-        - name: lang
-          default: python
         - name: src_catalog
           default: ckoester_sql_server
         - name: src_schema
           default: dbo
         - name: src_table
           default: partitioned_queries_src
-        - name: concurrency
-          default: 8
         - name: tgt_catalog
           default: main
         - name: tgt_schema
