@@ -26,3 +26,10 @@ wheel
 ## version of db-connect that corresponds to the Databricks Runtime version used
 ## for this project.
 databricks-connect>=14.3,<14.4
+
+## jsonschema used to validate json. Used locally for unit tests
+## Included in DBR so doesn't need to be installed separately
+jsonschema
+
+## Databricks SDK. Used for managing secrets in notebooks/manage_secrets.ipynb
+databricks-sdk==0.25.1

@@ -9,10 +9,10 @@ include:
 variables:
   existing_cluster_id:
     description: The ID of an existing cluster
-    default: 0729-212854-o3mbohsl
+    default: 0118-165440-l8erfx3g
   existing_warehouse_id:
     description: The ID of an existing warehouse
-    default: d1184b8c2a8a87eb
+    default: a50b6f1c6dc8d58c
 
 targets:
   # The 'dev' target, for development purposes. This target is the default.

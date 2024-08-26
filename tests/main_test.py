@@ -1,4 +1,6 @@
 from pyspark.testing import assertDataFrameEqual
+from jsonschema import exceptions
+import pytest
 from lakefed_ingest.main import *
 
 # Partition list is scoped to module for multiple tests
@@ -39,3 +41,12 @@ def test_get_partition_df() -> None:
     partition_df = get_partition_df(partition_list=partition_list_expected, num_partitions=5, batch_size=2)
 
     assertDataFrameEqual(partition_df, partition_df_expected)
+
+def test_get_jdbc_config_fails() -> None:
+    """Test jdbc config with incorrect schema
+    
+    Incorrect schema should result in jsonschema.exceptions.ValidationError being raised
+    """
+
+    with pytest.raises(exceptions.ValidationError):
+        get_jdbc_config(file_path='tests/jdbc_config_bad_schema.json')

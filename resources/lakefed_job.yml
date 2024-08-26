@@ -37,13 +37,13 @@ resources:
         enabled: false
       parameters:
         - name: src_type
-          default: sqlserver
+          default: postgresql
         - name: src_catalog
-          default: ckoester_sql_server
+          default: ckoester_postgresql
         - name: src_schema
-          default: dbo
+          default: public
         - name: src_table
-          default: partitioned_queries_src
+          default: lakefed_src_10m
         - name: partition_col
           default: customer_id
         - name: partition_size_mb
@@ -53,7 +53,7 @@ resources:
         - name: tgt_schema
           default: chris_koester
         - name: tgt_table
-          default: partitioned_queries_tgt
+          default: lakefed_tgt
     lakehouse_federation_ingest_lvl2:
       name: "Lakehouse Federation Ingest Lvl2"
       tasks:
@@ -62,14 +62,14 @@ resources:
             notebook_path: ../src/get_batch_of_partitions.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
-        - task_key: run_queries_py
+        - task_key: foreach_partition
           depends_on:
             - task_key: get_batch_of_partitions
           for_each_task:
             inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
             concurrency: 8
             task:
-              task_key: run_query_py
+              task_key: run_query
               notebook_task:
                 notebook_path: ../src/run_query_py.ipynb
                 base_parameters:
@@ -83,21 +83,17 @@ resources:
       queue:
         enabled: false
       parameters:
-        - name: lang
-          default: python
         - name: src_catalog
-          default: ckoester_sql_server
+          default: ckoester_postgresql
         - name: src_schema
-          default: dbo
+          default: public
         - name: src_table
-          default: partitioned_queries_src
-        - name: concurrency
-          default: 8
+          default: lakefed_src_10m
         - name: tgt_catalog
           default: main
         - name: tgt_schema
           default: chris_koester
         - name: tgt_table
-          default: partitioned_queries_tgt
+          default: lakefed_tgt
         - name: batch_id
           default: ""
