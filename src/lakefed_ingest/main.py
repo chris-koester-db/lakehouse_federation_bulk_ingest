@@ -12,6 +12,7 @@ from pyspark.sql import Window
 import math
 import json
 import os
+import re
 
 # Get SparkSession
 # https://docs.databricks.com/dev-tools/databricks-connect.html.
@@ -23,6 +24,39 @@ def get_spark() -> SparkSession:
 
 spark = get_spark()
 dbutils = DBUtils(spark)
+
+def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, file_path:str) -> str:
+    """Get SQL DDL to create target table
+    
+    Placeholders in DDL text are replaced so that object identifiers
+    don't need to be hard coded, and therefore managed in multiple
+    places.
+    
+    String replacement solution source
+    https://stackoverflow.com/a/6117124
+    
+    Args:
+        file_path (str): Path of config file relative to project root (config/ddl_create_lakefed_tgt.txt)
+    
+    Returns:
+        str: SQL DDL statement
+    """
+
+    root_dir = Path(__file__).resolve().parents[2]
+    file_path_full = os.path.join(root_dir, file_path)
+
+    with open(file_path_full) as f:
+        sql_ddl = f.read()
+    
+    # Define string replacements here
+    rep = {'{catalog}': catalog, '{schema}': schema, '{table}': table, '{partition_col}': partition_col}
+    
+    # Perform string replacement
+    rep = dict((re.escape(k), v) for k, v in rep.items()) 
+    pattern = re.compile("|".join(rep.keys()))
+    sql_ddl = pattern.sub(lambda m: rep[re.escape(m.group(0))], sql_ddl)
+    
+    return sql_ddl
 
 def get_partition_boundaries(catalog:str, schema:str, table:str, partition_col:str) -> tuple[int, int]:
     """Get partition boundaries (Min and max values for partition column)

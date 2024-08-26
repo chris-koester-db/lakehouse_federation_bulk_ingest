@@ -1,6 +1,7 @@
 from pyspark.testing import assertDataFrameEqual
 from jsonschema import exceptions
 import pytest
+import textwrap
 from lakefed_ingest.main import *
 
 # Partition list is scoped to module for multiple tests
@@ -50,3 +51,24 @@ def test_get_jdbc_config_fails() -> None:
 
     with pytest.raises(exceptions.ValidationError):
         get_jdbc_config(file_path='tests/jdbc_config_bad_schema.json')
+
+def test_get_sql_ddl():
+    expected_sql_ddl = f"""\
+        create or replace table main.lakefed.lakefed_tgt (
+          customer_id BIGINT,
+          name STRING,
+          alias STRING)
+          CLUSTER BY (customer_id)
+    """
+
+    expected_sql_ddl = textwrap.dedent(expected_sql_ddl)
+
+    sql_ddl = get_sql_ddl(
+        catalog='main',
+        schema='lakefed',
+        table='lakefed_tgt',
+        partition_col='customer_id',
+        file_path='tests/ddl_create_lakefed_tgt.txt',
+    )
+
+    assert sql_ddl == expected_sql_ddl

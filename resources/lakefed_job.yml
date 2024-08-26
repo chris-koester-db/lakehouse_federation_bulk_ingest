@@ -48,6 +48,10 @@ resources:
           default: customer_id
         - name: partition_size_mb
           default: 256
+        - name: jdbc_config_file
+          default: ""
+        - name: tgt_ddl_file_path
+          default: config/ddl_create_lakefed_tgt.txt
         - name: tgt_catalog
           default: main
         - name: tgt_schema
