@@ -234,7 +234,7 @@ def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_fi
         print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
         
         spark.sql(f'use catalog {catalog}')
-        table_size_mb = spark.sql(table_size_qry).collect()[0]['size_in_bytes']
+        table_size_in_bytes = spark.sql(table_size_qry).collect()[0]['pg_table_size']
     
     table_size_mb = math.ceil(table_size_in_bytes / 1024 / 1024)
     
