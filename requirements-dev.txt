@@ -27,9 +27,13 @@ wheel
 ## for this project.
 databricks-connect>=14.3,<14.4
 
+## Downgrade numpy due to issue below
+## AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead.
+numpy<2.0
+
 ## jsonschema used to validate json. Used locally for unit tests
 ## Included in DBR so doesn't need to be installed separately
-jsonschema
+jsonschema==4.17.3
 
 ## Databricks SDK. Used for managing secrets in notebooks/manage_secrets.ipynb
 databricks-sdk==0.25.1

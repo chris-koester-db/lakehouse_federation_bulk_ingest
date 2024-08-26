@@ -1,0 +1,5 @@
+create or replace table {catalog}.{schema}.{table} (
+  customer_id BIGINT,
+  name STRING,
+  alias STRING)
+  CLUSTER BY ({partition_col})
