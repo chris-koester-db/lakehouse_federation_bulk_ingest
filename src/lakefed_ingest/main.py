@@ -2,7 +2,9 @@ from databricks.connect.session import DatabricksSession
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.dbutils import DBUtils
+from typing import Optional
 from pathlib import Path
+from jsonschema import validate
 import textwrap
 import pprint
 import pyspark.sql.functions as F
@@ -11,9 +13,8 @@ import math
 import json
 import os
 
-# Create a new Databricks Connect session. If this fails,
-# check that you have configured Databricks Connect correctly.
-# See https://docs.databricks.com/dev-tools/databricks-connect.html.
+# Get SparkSession
+# https://docs.databricks.com/dev-tools/databricks-connect.html.
 def get_spark() -> SparkSession:
     try:
         return DatabricksSession.builder.getOrCreate()
@@ -49,6 +50,46 @@ def get_partition_boundaries(catalog:str, schema:str, table:str, partition_col:s
     upper_bound = partition_boundaries_df.collect()[0]["upper_bound"]
     
     return lower_bound, upper_bound
+
+def get_jdbc_config(file_path:str) -> dict:
+    """Get JDBC config from json file and return as dict
+
+    JDBC pushdown is intended to be used only when Lakehouse
+    Federation doesn't support functions needed to get the
+    size of a table
+    
+    Args:
+        file_path (str): Path of config file relative to project root (config/postgresql_jdbc.json)
+    
+    Returns:
+        dict: JDBC config
+    """
+
+    root_dir = Path(__file__).resolve().parents[2]
+    file_path_full = os.path.join(root_dir, file_path)
+
+    with open(file_path_full) as f:
+        config = json.load(f)
+    
+    # Validate config schema
+    config_schema = {
+        "type" : "object",
+        "properties" : {
+            "host" : {"type" : "string"},
+            "port" : {"type" : "string"},
+            "database" : {"type" : "string"},
+            "secret_scope" : {"type" : "string"},
+            "secret_key_user" : {"type" : "string"},
+            "secret_key_pwd" : {"type" : "string"},
+        },
+    }
+    
+    validate(instance=config, schema=config_schema)
+    
+    print('JDBC config:')
+    pprint.pprint(config)
+
+    return config
 
 def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     """Get SQL Server table size
@@ -86,57 +127,82 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_postgresql(schema:str, table:str, config_file_path:str='config/postgresql_jdbc.json') -> int:
+def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_file:Optional[str]=None) -> int:
     """Get PostgreSQL table size
 
-    Uses JDBC pushdown because Lakehouse Federation doesn't support table size functions
+    Getting a table's size in PostgreSQL requires either using a JDBC pushdown query,
+    or creating a view in the source database that can then be queried using Lakehouse Federation.
+    This is because Lakehouse Federation doesn't currently support PostgreSQL object size functions
+    such as pg_table_size()
+
+    To use JDBC pushdown, add a config file that matches the schema of config/postgresql_jdbc.json.
+    Then provide the path to the config file when calling this function.
     https://docs.databricks.com/en/connect/external-systems/postgresql.html
 
-    # TODO: consider adding support for a view in PostgreSQL that allows for getting
-    table sizes using Lakehouse Federation. This would introduce a dependency in
-    the PostgreSQL database, but would avoid the need for a JDBC connection.
+    To use Lakehouse Federation, create the view below in the PostgreSQL database and don't
+    use the jdbc_config_file argument.
+    
+    create or replace view public.vw_pg_table_size
+     as
+     select
+      table_schema,
+      table_name,
+      pg_table_size(quote_ident(table_name)),
+      pg_size_pretty(pg_table_size(quote_ident(table_name))) as pg_table_size_pretty
+    from information_schema.tables
+    where table_schema not in ('pg_catalog', 'information_schema')
+    and table_type = 'BASE TABLE';
     
     Args:
         schema (str): Schema name
         table (str): Table name
-        config_file_path (str): Path of config file relative to project root
+        jdbc_config_file (str): Path of config file relative to project root (config/postgresql_jdbc.json)
     
     Returns:
         int: Size of PostgreSQL table in MB
     """
     
-    # Read config file and deserialize to a dict
-    root_dir = Path(__file__).resolve().parents[2]
-    file_path = os.path.join(root_dir, config_file_path)
+    table_size_mb = 0
 
-    with open(file_path) as f:
-        config = json.load(f)
+    if jdbc_config_file:
+        print('Using JDBC pushdown to get table size')
+        config = get_jdbc_config(jdbc_config_file)
+        
+        # Get database user credentials from secrets
+        # https://docs.databricks.com/en/security/secrets/index.html
+        user = dbutils.secrets.get(scope=config['secret_scope'], key=config['secret_key_user'])
+        password = dbutils.secrets.get(scope=config['secret_scope'], key=config['secret_key_pwd'])
+        
+        # Query to get table size will be pushed down to PostgreSQL database
+        table_size_qry = f"(select pg_relation_size('{schema}.{table}') as size_in_bytes) as size_in_bytes"
+        
+        print(f'Query used to get table size:\n{table_size_qry}')
+        
+        table_size_in_bytes = (
+            spark.read.format("postgresql")
+            .option("dbtable", table_size_qry)
+            .option("host", config['host'])
+            .option("port", config['port'])
+            .option("database", config['database'])
+            .option("user", user)
+            .option("password", password)
+            .load()
+        ).collect()[0]['size_in_bytes']
+    else:
+        print('Querying PostgreSQL view to get table size')
+        table_size_qry = f"""\
+            select pg_table_size
+            from public.vw_pg_table_size
+            where table_schema = '{schema}'
+            and table_name = '{table}'
+        """
+        
+        print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
+        
+        spark.sql(f'use catalog {catalog}')
+        table_size_mb = spark.sql(table_size_qry).collect()[0]['size_in_bytes']
     
-    print('PostgreSQL JDBC config:')
-    pprint.pprint(config)
-    
-    # Get database user credentials from secrets
-    # https://docs.databricks.com/en/security/secrets/index.html
-    user = dbutils.secrets.get(scope=config['secret_scope'], key=config['secret_key_user'])
-    password = dbutils.secrets.get(scope=config['secret_scope'], key=config['secret_key_pwd'])
-    
-    # Query to get table size will be pushed down to PostgreSQL database
-    table_size_qry = f"(select pg_relation_size('{schema}.{table}') as size_in_bytes) as size_in_bytes"
-    
-    print(f'Query used to get table size:\n{table_size_qry}')
-    
-    table_size_in_bytes = (
-        spark.read.format("postgresql")
-        .option("dbtable", table_size_qry)
-        .option("host", config['host'])
-        .option("port", config['port'])
-        .option("database", config['database'])
-        .option("user", user)
-        .option("password", password)
-        .load()
-    ).collect()[0]['size_in_bytes']
-    
-    table_size_mb = table_size_in_bytes / 1024 / 1024
+    table_size_mb = math.ceil(table_size_in_bytes / 1024 / 1024)
     
     return table_size_mb
 
@@ -226,7 +292,7 @@ def get_partition_df(partition_list:list[dict], num_partitions:int, batch_size:i
     
     # Calculate number of batches and round up
     num_batches = math.ceil(num_partitions / batch_size)
-    print(f'num_batches: {num_batches}')
+    print(f'Number of batches: {num_batches}')
     
     partition_df = spark.createDataFrame(
         partition_list, # type: ignore
