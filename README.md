@@ -1,10 +1,34 @@
 # Lakehouse Federation Bulk Ingest
 
-Provides a mechanism for ingesting large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed concurrently with a specified degree of parallelism in a Databricks Job foreach task.
+Provides a mechanism for ingesting large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed N (Default is 8) at a time in a Databricks Job foreach task.
 
 ![Lakehouse Federation ingest diagram](assets/lakefed_ingest_diagram.png "Lakehouse Federation ingest diagram")
 
-## Getting started
+## Configure Lakehouse Federation
+
+Follow the [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html) instructions to create a connection and foreign catalog.
+
+**PostgreSQL Configuration**  
+The number of queries used for ingestion is determined in part by the size of the source table. Since Lakehouse Federation doesn't currently support PostgreSQL object size functions (E.g., pg_table_size), you need to create a view in the source database or use JDBC pushdown.
+
+1. Database view - create a view in the source database using the statement below. Leave the `jdbc_config_file` job parameter blank, and the view will be queried using Lakehouse Federation.
+
+```sql
+create or replace view public.vw_pg_table_size
+ as
+ select
+  table_schema,
+  table_name,
+  pg_table_size(quote_ident(table_name)),
+  pg_size_pretty(pg_table_size(quote_ident(table_name))) as pg_table_size_pretty
+from information_schema.tables
+where table_schema not in ('pg_catalog', 'information_schema')
+and table_type = 'BASE TABLE';
+```
+
+2. JDBC pushdown - create a config file like [config/postgresql_jdbc.json](config/postgresql_jdbc.json). Use the path to the file as the value for the `jdbc_config_file` job parameter. [Secrets](https://learn.microsoft.com/en-us/azure/databricks/security/secrets/) must be used for JDBC credentials. See [notebooks/manage_secrets.ipynb](notebooks/manage_secrets.ipynb) for reference.
+
+## Deploy Project as a Databricks Asset Bundle (DAB)
 
 1. Install the Databricks CLI from https://docs.databricks.com/dev-tools/cli/databricks-cli.html
 
