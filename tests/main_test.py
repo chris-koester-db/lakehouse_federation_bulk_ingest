@@ -4,8 +4,8 @@ import pytest
 import textwrap
 from lakefed_ingest.main import *
 
-# Partition list is scoped to module for multiple tests
-partition_list_expected = [
+# Partition lists scoped to module for multiple tests
+partition_list_expected_int = [
     {'id': 0, 'where_clause': 'customer_id < 200 or customer_id is null'},
     {'id': 1, 'where_clause': 'customer_id >= 200 and customer_id < 399'},
     {'id': 2, 'where_clause': 'customer_id >= 399 and customer_id < 598'},
@@ -13,16 +13,32 @@ partition_list_expected = [
     {'id': 4, 'where_clause': 'customer_id >= 797'}
 ]
 
-def test_partition_list() -> None:
-    
-    partition_list = get_partition_list(
-        partition_col='customer_id',
-        lower_bound=1,
-        upper_bound=1000,
-        num_partitions=5
-    )
-    
-    assert partition_list == partition_list_expected
+partition_list_expected_dt = [
+    {'id': 0, 'where_clause': 'dt_col < 2024-01-19 04:47:11 or dt_col is null'},
+    {'id': 1, 'where_clause': 'dt_col >= 2024-01-19 04:47:11 and dt_col < 2024-02-06 09:34:22'},
+    {'id': 2, 'where_clause': 'dt_col >= 2024-02-06 09:34:22 and dt_col < 2024-02-24 14:21:33'},
+    {'id': 3, 'where_clause': 'dt_col >= 2024-02-24 14:21:33 and dt_col < 2024-03-13 19:08:44'},
+    {'id': 4, 'where_clause': 'dt_col >= 2024-03-13 19:08:44'}
+]
+
+partition_list_expected_date = [
+    {"id": 0, "where_clause": "date_col < 2024-01-19 or date_col is null"},
+    {"id": 1, "where_clause": "date_col >= 2024-01-19 and date_col < 2024-02-06"},
+    {"id": 2, "where_clause": "date_col >= 2024-02-06 and date_col < 2024-02-24"},
+    {"id": 3, "where_clause": "date_col >= 2024-02-24 and date_col < 2024-03-13"},
+    {"id": 4, "where_clause": "date_col >= 2024-03-13"}
+]
+
+@pytest.mark.parametrize(
+    "partition_col,lower_bound,upper_bound,num_partitions,expected",
+    [
+        ('customer_id', 1, 1000, 5, partition_list_expected_int),
+        ('dt_col', datetime(2024, 1, 1), datetime(2024, 3, 31, 23, 55, 59, 342380), 5, partition_list_expected_dt),
+        ('date_col', datetime(2024, 1, 1).date(), datetime(2024, 3, 31).date(), 5, partition_list_expected_date)
+    ]
+)
+def test_get_partition_list(partition_col,lower_bound,upper_bound,num_partitions,expected):
+    assert get_partition_list(partition_col,lower_bound,upper_bound,num_partitions) == expected
 
 def test_get_partition_df() -> None:
 
@@ -39,7 +55,7 @@ def test_get_partition_df() -> None:
         schema="id int, where_clause string, batch_id int"
     )
 
-    partition_df = get_partition_df(partition_list=partition_list_expected, num_partitions=5, batch_size=2)
+    partition_df = get_partition_df(partition_list=partition_list_expected_int, num_partitions=5, batch_size=2)
 
     assertDataFrameEqual(partition_df, partition_df_expected)
 

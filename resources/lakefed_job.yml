@@ -5,14 +5,16 @@ resources:
       tasks:
         - task_key: get_partition_list
           notebook_task:
-            notebook_path: ../src/get_partition_list.ipynb
+            notebook_path: ../notebooks/get_partition_list.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
+          libraries:
+            - whl: ../dist/*.whl
         - task_key: create_tgt_table
           depends_on:
             - task_key: get_partition_list
           notebook_task:
-            notebook_path: ../src/create_tgt_table.ipynb
+            notebook_path: ../notebooks/create_tgt_table.ipynb
             base_parameters:
               catalog: "{{job.parameters.tgt_catalog}}"
               schema: "{{job.parameters.tgt_schema}}"
@@ -63,7 +65,7 @@ resources:
       tasks:
         - task_key: get_batch_of_partitions
           notebook_task:
-            notebook_path: ../src/get_batch_of_partitions.ipynb
+            notebook_path: ../notebooks/get_batch_of_partitions.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
         - task_key: foreach_partition
@@ -75,7 +77,7 @@ resources:
             task:
               task_key: run_query
               notebook_task:
-                notebook_path: ../src/run_query_py.ipynb
+                notebook_path: ../notebooks/run_query_py.ipynb
                 base_parameters:
                   where_clause: "{{input}}"
                 source: WORKSPACE

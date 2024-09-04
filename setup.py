@@ -32,6 +32,7 @@ setup(
         # Dependencies in case the output wheel file is used as a library dependency.
         # For defining dependencies, when this package is used in Databricks, see:
         # https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
-        "setuptools"
+        "setuptools",
+        "jsonschema==4.23.0"
     ],
 )

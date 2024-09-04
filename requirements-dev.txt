@@ -33,7 +33,7 @@ numpy<2.0
 
 ## jsonschema used to validate json. Used locally for unit tests
 ## Included in DBR so doesn't need to be installed separately
-jsonschema==4.17.3
+jsonschema==4.23.0
 
 ## Databricks SDK. Used for managing secrets in notebooks/manage_secrets.ipynb
 databricks-sdk==0.25.1
