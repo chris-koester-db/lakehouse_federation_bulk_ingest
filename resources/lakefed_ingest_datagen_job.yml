@@ -7,7 +7,7 @@ resources:
           existing_cluster_id: ${var.existing_cluster_id}
           webhook_notifications: {}
           notebook_task:
-            notebook_path: ../src/generate_src_data.py
+            notebook_path: ../notebooks/generate_src_data.py
             source: WORKSPACE
           run_if: ALL_SUCCESS
       queue:

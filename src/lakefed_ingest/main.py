@@ -5,6 +5,7 @@ from pyspark.dbutils import DBUtils
 from typing import Optional
 from pathlib import Path
 from jsonschema import validate
+from datetime import date, datetime, timezone
 import textwrap
 import pprint
 import pyspark.sql.functions as F
@@ -25,7 +26,7 @@ def get_spark() -> SparkSession:
 spark = get_spark()
 dbutils = DBUtils(spark)
 
-def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, file_path:str) -> str:
+def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, root_dir:str, file_path:str) -> str:
     """Get SQL DDL to create target table
     
     Placeholders in DDL text are replaced so that object identifiers
@@ -36,13 +37,17 @@ def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, file_path
     https://stackoverflow.com/a/6117124
     
     Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+        partition_col (str): Column used to partition the table
+        root_dir (str): Root directory for project files
         file_path (str): Path of config file relative to project root (config/ddl_create_lakefed_tgt.txt)
     
     Returns:
         str: SQL DDL statement
     """
-
-    root_dir = Path(__file__).resolve().parents[2]
+    
     file_path_full = os.path.join(root_dir, file_path)
 
     with open(file_path_full) as f:
@@ -85,7 +90,7 @@ def get_partition_boundaries(catalog:str, schema:str, table:str, partition_col:s
     
     return lower_bound, upper_bound
 
-def get_jdbc_config(file_path:str) -> dict:
+def get_jdbc_config(root_dir:str, file_path:str) -> dict:
     """Get JDBC config from json file and return as dict
 
     JDBC pushdown is intended to be used only when Lakehouse
@@ -93,13 +98,13 @@ def get_jdbc_config(file_path:str) -> dict:
     size of a table
     
     Args:
+        root_dir (str): Root directory for project files
         file_path (str): Path of config file relative to project root (config/postgresql_jdbc.json)
     
     Returns:
         dict: JDBC config
     """
 
-    root_dir = Path(__file__).resolve().parents[2]
     file_path_full = os.path.join(root_dir, file_path)
 
     with open(file_path_full) as f:
@@ -161,7 +166,13 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_file:Optional[str]=None) -> int:
+def get_table_size_postgresql(
+    catalog: str,
+    schema: str,
+    table: str,
+    root_dir: Optional[str] = None,
+    jdbc_config_file: Optional[str] = None,
+) -> int:
     """Get PostgreSQL table size
 
     Getting a table's size in PostgreSQL requires either using a JDBC pushdown query,
@@ -200,7 +211,7 @@ def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_fi
 
     if jdbc_config_file:
         print('Using JDBC pushdown to get table size')
-        config = get_jdbc_config(jdbc_config_file)
+        config = get_jdbc_config(root_dir, jdbc_config_file) # type: ignore
         
         # Get database user credentials from secrets
         # https://docs.databricks.com/en/security/secrets/index.html
@@ -256,10 +267,58 @@ def get_table_size_delta(catalog:str, schema:str, table:str) -> int:
     
     table_size_in_bytes = spark.sql(f'desc detail {catalog}.{schema}.{table}').collect()[0]['sizeInBytes']
     table_size_mb = table_size_in_bytes / 1024 / 1024
-    print(f'Table size MB: {table_size_mb}')
     return table_size_mb
 
-def get_partition_list(partition_col:str, lower_bound:int, upper_bound:int, num_partitions:int) -> list[dict]:
+def get_internal_bound_value(bound_value) -> int:
+    """Get numeric representation of bound value for get_partition_list function
+    
+    Args:
+        bound_value: lower or upper bound value of partition column 
+    
+    Returns:
+        Numeric representation of bound value
+    """
+    
+    if isinstance(bound_value, int):
+        pass
+    elif isinstance(bound_value, datetime):
+        bound_value = int(bound_value.replace(tzinfo=timezone.utc).timestamp())
+        #bound_value = int(datetime.timestamp(bound_value)) #dt.replace(tzinfo=timezone.utc)
+    elif isinstance(bound_value, date):
+        dt_bound_value = datetime(
+            year=bound_value.year,
+            month=bound_value.month,
+            day=bound_value.day,
+        )
+        bound_value = int(dt_bound_value.replace(tzinfo=timezone.utc).timestamp())
+    else:
+        raise ValueError(f'Unsupported data type: {type(bound_value)}. Only int, date, and datetime are supported')
+
+    return bound_value
+
+def bound_value_to_str(bound_value:int, bound_value_orig) -> str:
+    """Convert bound value to string for SQL where clause
+    
+    Args:
+        bound_value (int): bound value as int
+        bound_value_orig: original bound value used to determine the type
+    
+    Returns:
+        String representation of bound value
+    """
+
+    if isinstance(bound_value_orig, int):
+        bound_value_str = str(bound_value)
+    elif isinstance(bound_value_orig, datetime):
+        bound_value_str = f"'{datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}'"
+    elif isinstance(bound_value_orig, date):
+        bound_value_str = f"'{datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d')}'"
+    else:
+        raise ValueError(f'Unsupported data type: {type(bound_value)}. Only int, date, and datetime are supported')
+    
+    return bound_value_str
+
+def get_partition_list(partition_col:str, lower_bound, upper_bound, num_partitions:int) -> list[dict]:
     """Generate list of queries based on partitioning schematic
     
     Function is derived from the JDBC partitioning code in Spark:
@@ -278,13 +337,27 @@ def get_partition_list(partition_col:str, lower_bound:int, upper_bound:int, num_
     
     Args:
         partition_col (str): Column used to generate partition queries. Using a clustered index column is recommended.
-        lower_bound (str): Lowest partition column value
-        upper_bound (str): Higest partition column value
+        lower_bound: Lowest partition column value
+        upper_bound: Highest partition column value
         num_partitions (str): Number of partition queries
     
     Returns:
         list[dict]: List of dicts containing lower_bound, upper_bound, and src_query
     """
+    
+    # Bound values are converted to int and then to string. The original
+    # bound value is saved first so we know how to convert the int to string.
+    lower_bound_type = type(lower_bound)
+    upper_bound_type = type(upper_bound)
+
+    if lower_bound_type == upper_bound_type:
+        lower_bound_orig = lower_bound
+    else:
+        raise TypeError(f'Bound values must have the same type. Lower bound: {lower_bound_type}, Upper bound: {upper_bound_type}')
+    
+    # Get numeric representation of bound values for stride calculation
+    lower_bound = get_internal_bound_value(lower_bound)
+    upper_bound = get_internal_bound_value(upper_bound)
 
     partition_list = []
     stride = int(upper_bound / num_partitions - lower_bound / num_partitions)
@@ -292,10 +365,10 @@ def get_partition_list(partition_col:str, lower_bound:int, upper_bound:int, num_
     i = 0
     currentValue = lower_bound
     while (i < num_partitions):
-        lBoundValue = str(currentValue)
+        lBoundValue = bound_value_to_str(currentValue, lower_bound_orig)
         lBound = f'{partition_col} >= {lBoundValue}' if i != 0 else None
         currentValue += stride
-        uBoundValue = str(currentValue)
+        uBoundValue = bound_value_to_str(currentValue, lower_bound_orig)
         uBound = f'{partition_col} < {uBoundValue}' if i != num_partitions - 1 else None
         if uBound == None:
             whereClause = lBound
@@ -303,7 +376,7 @@ def get_partition_list(partition_col:str, lower_bound:int, upper_bound:int, num_
             whereClause = f'{uBound} or {partition_col} is null'
         else:
             whereClause = f'{lBound} and {uBound}'
-        partition_list.append({'lower_bound' : int(lBoundValue), 'upper_bound' : int(uBoundValue) - 1, 'where_clause' : whereClause})
+        partition_list.append({'id' : i, 'where_clause' : whereClause})
         i = i + 1
         
     return partition_list
@@ -330,9 +403,9 @@ def get_partition_df(partition_list:list[dict], num_partitions:int, batch_size:i
     
     partition_df = spark.createDataFrame(
         partition_list, # type: ignore
-        schema="lower_bound int, upper_bound int, where_clause string, batch_id int"
+        schema="id int, where_clause string, batch_id int"
     )
-    window = Window.orderBy("lower_bound")
+    window = Window.orderBy("id")
     partition_df = partition_df.withColumn("batch_id", F.ntile(num_batches).over(window))
 
     return partition_df

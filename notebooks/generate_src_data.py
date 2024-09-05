@@ -50,7 +50,19 @@ def create_dataspec(row_count, partitions):
           .withColumn("created_ts", "timestamp", expr="now()")
           .withColumn("modified_ts", "timestamp", expr="now()")
           .withColumn("memo", expr="'original data'")
+          .withColumn(
+              "ts_col",
+              "timestamp",
+              data_range=dg.DateRange("2023-01-01 00:00:00", "2023-12-31 11:55:00", "seconds=8"),
+              baseColumn="customer_id",
           )
+          .withColumn(
+              "date_col",
+              "date",
+              expr="cast(ts_col as date)",
+              baseColumn="customer_id",
+          )
+      )
     
     return dataspec
 

@@ -11,5 +11,7 @@ create or replace table {catalog}.{schema}.{table} (
   customer_notes STRING,
   created_ts TIMESTAMP,
   modified_ts TIMESTAMP,
-  memo STRING)
+  memo STRING,
+  ts_col TIMESTAMP,
+  date_col DATE)
   CLUSTER BY ({partition_col})
