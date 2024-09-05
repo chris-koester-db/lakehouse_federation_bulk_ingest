@@ -26,7 +26,7 @@ def get_spark() -> SparkSession:
 spark = get_spark()
 dbutils = DBUtils(spark)
 
-def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, file_path:str) -> str:
+def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, root_dir:str, file_path:str) -> str:
     """Get SQL DDL to create target table
     
     Placeholders in DDL text are replaced so that object identifiers
@@ -37,13 +37,17 @@ def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, file_path
     https://stackoverflow.com/a/6117124
     
     Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+        partition_col (str): Column used to partition the table
+        root_dir (str): Root directory for project files
         file_path (str): Path of config file relative to project root (config/ddl_create_lakefed_tgt.txt)
     
     Returns:
         str: SQL DDL statement
     """
-
-    root_dir = Path(__file__).resolve().parents[2]
+    
     file_path_full = os.path.join(root_dir, file_path)
 
     with open(file_path_full) as f:
@@ -86,7 +90,7 @@ def get_partition_boundaries(catalog:str, schema:str, table:str, partition_col:s
     
     return lower_bound, upper_bound
 
-def get_jdbc_config(file_path:str) -> dict:
+def get_jdbc_config(root_dir:str, file_path:str) -> dict:
     """Get JDBC config from json file and return as dict
 
     JDBC pushdown is intended to be used only when Lakehouse
@@ -94,13 +98,13 @@ def get_jdbc_config(file_path:str) -> dict:
     size of a table
     
     Args:
+        root_dir (str): Root directory for project files
         file_path (str): Path of config file relative to project root (config/postgresql_jdbc.json)
     
     Returns:
         dict: JDBC config
     """
 
-    root_dir = Path(__file__).resolve().parents[2]
     file_path_full = os.path.join(root_dir, file_path)
 
     with open(file_path_full) as f:
@@ -162,7 +166,13 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_file:Optional[str]=None) -> int:
+def get_table_size_postgresql(
+    catalog: str,
+    schema: str,
+    table: str,
+    root_dir: Optional[str] = None,
+    jdbc_config_file: Optional[str] = None,
+) -> int:
     """Get PostgreSQL table size
 
     Getting a table's size in PostgreSQL requires either using a JDBC pushdown query,
@@ -201,7 +211,7 @@ def get_table_size_postgresql(catalog:str, schema:str, table:str, jdbc_config_fi
 
     if jdbc_config_file:
         print('Using JDBC pushdown to get table size')
-        config = get_jdbc_config(jdbc_config_file)
+        config = get_jdbc_config(root_dir, jdbc_config_file) # type: ignore
         
         # Get database user credentials from secrets
         # https://docs.databricks.com/en/security/secrets/index.html
@@ -300,9 +310,9 @@ def bound_value_to_str(bound_value:int, bound_value_orig) -> str:
     if isinstance(bound_value_orig, int):
         bound_value_str = str(bound_value)
     elif isinstance(bound_value_orig, datetime):
-        bound_value_str = datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        bound_value_str = f"'{datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}'"
     elif isinstance(bound_value_orig, date):
-        bound_value_str = datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d')
+        bound_value_str = f"'{datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d')}'"
     else:
         raise ValueError(f'Unsupported data type: {type(bound_value)}. Only int, date, and datetime are supported')
     

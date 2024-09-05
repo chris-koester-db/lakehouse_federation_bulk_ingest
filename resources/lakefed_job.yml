@@ -50,6 +50,8 @@ resources:
           default: customer_id
         - name: partition_size_mb
           default: 256
+        - name: root_dir
+          default: /Workspace/${workspace.file_path}
         - name: jdbc_config_file
           default: ""
         - name: tgt_ddl_file_path

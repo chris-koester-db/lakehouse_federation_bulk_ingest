@@ -14,19 +14,19 @@ partition_list_expected_int = [
 ]
 
 partition_list_expected_dt = [
-    {'id': 0, 'where_clause': 'dt_col < 2024-01-19 04:47:11 or dt_col is null'},
-    {'id': 1, 'where_clause': 'dt_col >= 2024-01-19 04:47:11 and dt_col < 2024-02-06 09:34:22'},
-    {'id': 2, 'where_clause': 'dt_col >= 2024-02-06 09:34:22 and dt_col < 2024-02-24 14:21:33'},
-    {'id': 3, 'where_clause': 'dt_col >= 2024-02-24 14:21:33 and dt_col < 2024-03-13 19:08:44'},
-    {'id': 4, 'where_clause': 'dt_col >= 2024-03-13 19:08:44'}
+    {'id': 0, 'where_clause': "dt_col < '2024-01-19 04:47:11' or dt_col is null"},
+    {'id': 1, 'where_clause': "dt_col >= '2024-01-19 04:47:11' and dt_col < '2024-02-06 09:34:22'"},
+    {'id': 2, 'where_clause': "dt_col >= '2024-02-06 09:34:22' and dt_col < '2024-02-24 14:21:33'"},
+    {'id': 3, 'where_clause': "dt_col >= '2024-02-24 14:21:33' and dt_col < '2024-03-13 19:08:44'"},
+    {'id': 4, 'where_clause': "dt_col >= '2024-03-13 19:08:44'"}
 ]
 
 partition_list_expected_date = [
-    {"id": 0, "where_clause": "date_col < 2024-01-19 or date_col is null"},
-    {"id": 1, "where_clause": "date_col >= 2024-01-19 and date_col < 2024-02-06"},
-    {"id": 2, "where_clause": "date_col >= 2024-02-06 and date_col < 2024-02-24"},
-    {"id": 3, "where_clause": "date_col >= 2024-02-24 and date_col < 2024-03-13"},
-    {"id": 4, "where_clause": "date_col >= 2024-03-13"}
+    {"id": 0, "where_clause": "date_col < '2024-01-19' or date_col is null"},
+    {"id": 1, "where_clause": "date_col >= '2024-01-19' and date_col < '2024-02-06'"},
+    {"id": 2, "where_clause": "date_col >= '2024-02-06' and date_col < '2024-02-24'"},
+    {"id": 3, "where_clause": "date_col >= '2024-02-24' and date_col < '2024-03-13'"},
+    {"id": 4, "where_clause": "date_col >= '2024-03-13'"}
 ]
 
 @pytest.mark.parametrize(
@@ -65,8 +65,10 @@ def test_get_jdbc_config_fails() -> None:
     Incorrect schema should result in jsonschema.exceptions.ValidationError being raised
     """
 
+    root_dir = str(Path(__file__).resolve().parents[1])
+
     with pytest.raises(exceptions.ValidationError):
-        get_jdbc_config(file_path='tests/jdbc_config_bad_schema.json')
+        get_jdbc_config(root_dir, file_path='tests/jdbc_config_bad_schema.json')
 
 def test_get_sql_ddl():
     expected_sql_ddl = f"""\
@@ -79,11 +81,14 @@ def test_get_sql_ddl():
 
     expected_sql_ddl = textwrap.dedent(expected_sql_ddl)
 
+    root_dir = str(Path(__file__).resolve().parents[1])
+
     sql_ddl = get_sql_ddl(
         catalog='main',
         schema='lakefed',
         table='lakefed_tgt',
         partition_col='customer_id',
+        root_dir=root_dir,
         file_path='tests/ddl_create_lakefed_tgt.txt',
     )
 
@@ -105,8 +110,8 @@ def test_get_internal_bound_value(bound_input, expected):
     "bound_input,bound_orig,expected",
     [
         (42, 42, '42'),
-        (1672271759, datetime(2022, 12, 28, 23, 55, 59, 342380), '2022-12-28 23:55:59'),
-        (1679356800, datetime(2023, 3, 21).date(), '2023-03-21'),
+        (1672271759, datetime(2022, 12, 28, 23, 55, 59, 342380), "'2022-12-28 23:55:59'"),
+        (1679356800, datetime(2023, 3, 21).date(), "'2023-03-21'"),
         pytest.param(42, "42", 42, marks=pytest.mark.xfail),
     ],
 )
