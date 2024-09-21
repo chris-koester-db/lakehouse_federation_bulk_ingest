@@ -1,6 +1,6 @@
 # Lakehouse Federation Bulk Ingest
 
-Provides a mechanism for ingesting large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed N (Default is 8) at a time in a Databricks Job foreach task.
+Provides a mechanism for ingesting large tables into Databricks via [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). It works by dynamically generating N queries that each retrieve a range from the source table. The query ranges are contiguous and don't overlap. The queries are then executed N (Default is 8) at a time in a Databricks Job [foreach task](https://docs.databricks.com/en/jobs/for-each.html).
 
 ![Lakehouse Federation ingest diagram](assets/lakefed_ingest_diagram.png "Lakehouse Federation ingest diagram")
 
@@ -31,6 +31,10 @@ and table_type = 'BASE TABLE';
 ```
 
 2. JDBC pushdown - create a config file like [config/postgresql_jdbc.json](config/postgresql_jdbc.json). Use the path to the file as the value for the `jdbc_config_file` job parameter. [Secrets](https://learn.microsoft.com/en-us/azure/databricks/security/secrets/) must be used for JDBC credentials. See [notebooks/manage_secrets.ipynb](notebooks/manage_secrets.ipynb) for reference.
+
+## Limitations
+- Does not handle skew. The solution works best when the partition column has an even distribution.
+- Does not provide atomicity. Individual queries are not executed as a single transaction and the source table is not locked. The source table could be modified during the job run. It is also possible for an individual query to fail while the rest succeed. The latter would be easily visible in the job run.
 
 ## Deploy Project as a Databricks Asset Bundle (DAB)
 
