@@ -144,7 +144,7 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     
     table_size_qry = f"""\
         SELECT
-          CAST(ROUND((SUM(a.total_pages) * 8) / 1024, 2) AS NUMERIC(36, 2)) AS Total_MB
+          s.name as schema, t.name as table, CAST(ROUND((SUM(a.total_pages) * 8) / 1024, 2) AS NUMERIC(36, 2)) AS table_size_mb
         FROM
           sys.tables t
           JOIN sys.indexes i ON t.OBJECT_ID = i.object_id
@@ -157,12 +157,12 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
           AND t.is_ms_shipped = 0
           AND i.object_id > 255
         GROUP BY
-          t.Name, s.Name, p.Rows
+          s.Name, t.Name
     """
     print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
     
     spark.sql(f'use catalog {catalog}')
-    table_size_mb = spark.sql(table_size_qry).collect()[0][0]
+    table_size_mb = spark.sql(table_size_qry).collect()[0]['table_size_mb']
     
     return table_size_mb
 
