@@ -34,7 +34,7 @@ and table_type = 'BASE TABLE';
 
 ## Limitations
 - Does not handle skew. The solution works best when the partition column has an even distribution.
-- Does not provide atomicity. Individual queries are not executed as a single transaction and the source table is not locked. The source table could be modified during the job run. It is also possible for an individual query to fail while the rest succeed. The latter would be easily visible in the job run.
+- Does not provide atomicity. Individual queries are not executed as a single transaction. One could fail while the rest succeed.
 
 ## Deploy Project as a Databricks Asset Bundle (DAB)
 
