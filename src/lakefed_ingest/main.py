@@ -16,7 +16,7 @@ import os
 import re
 
 # Get SparkSession
-# https://docs.databricks.com/dev-tools/databricks-connect.html.
+# https://docs.databricks.com/dev-tools/databricks-connect.html
 def get_spark() -> SparkSession:
     try:
         return DatabricksSession.builder.getOrCreate()
@@ -248,6 +248,31 @@ def get_table_size_postgresql(
         table_size_in_bytes = spark.sql(table_size_qry).collect()[0]['pg_table_size']
     
     table_size_mb = math.ceil(table_size_in_bytes / 1024 / 1024)
+    
+    return table_size_mb
+
+def get_table_size_redshift(catalog:str, schema:str, table:str) -> int:
+    """Get Redshift table size
+    
+    Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+    
+    Returns:
+        int: Size of Redshift table in MB
+    """
+    
+    table_size_qry = f"""\
+        select size as table_size_mb
+        from {catalog}.pg_catalog.svv_table_info
+        where schema = '{schema}'
+        and table = '{table}'
+    """
+    print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
+    
+    spark.sql(f'use catalog {catalog}')
+    table_size_mb = spark.sql(table_size_qry).collect()[0]['table_size_mb']
     
     return table_size_mb
 
