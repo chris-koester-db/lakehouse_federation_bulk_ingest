@@ -14,5 +14,5 @@
         "**/__pycache__": true,
         ".pytest_cache": true,
     },
-    "python.envFile": "${workspaceFolder}/.databricks/.databricks.env",
+    "python.envFile": "${workspaceRoot}/.env",
 }
