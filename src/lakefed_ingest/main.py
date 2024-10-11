@@ -276,6 +276,79 @@ def get_table_size_redshift(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
+def get_table_size_synapse(catalog:str, schema:str, table:str) -> int:
+    """Get Synapse table size
+    
+    Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+    
+    Returns:
+        int: Size of Synapse table in MB
+    """
+    
+    table_size_qry = f"""\
+        with table_size_base as (
+          select
+            s.name as schema_name,
+            t.name as table_name,
+            nt.name as node_table_name,
+            row_number() over(partition by nt.name order by (select null)) as node_table_name_seq,
+            tp.distribution_policy_desc as distribution_policy_name,
+            c.name as distribution_column,
+            nt.distribution_id as distribution_id,
+            i.type as index_type,
+            i.type_desc as index_type_desc,
+            nt.pdw_node_id as pdw_node_id,
+            pn.type as pdw_node_type,
+            pn.name as pdw_node_name,
+            di.name as dist_name,
+            di.position as dist_position,
+            nps.partition_number as partition_nmbr,
+            (
+              (
+                nps.in_row_data_page_count + nps.row_overflow_used_page_count + nps.lob_used_page_count
+              ) * 8.0
+            ) / 1000 as data_space_mb,
+            nps.row_count as row_count
+          from
+            sys.schemas s
+            inner join sys.tables t on s.schema_id = t.schema_id
+            inner join sys.indexes i on t.object_id = i.object_id
+            and i.index_id <= 1
+            inner join sys.pdw_table_distribution_properties tp on t.object_id = tp.object_id
+            inner join sys.pdw_table_mappings tm on t.object_id = tm.object_id
+            inner join sys.pdw_nodes_tables nt on tm.physical_name = nt.name
+            inner join sys.dm_pdw_nodes pn on nt.pdw_node_id = pn.pdw_node_id
+            inner join sys.pdw_distributions di on nt.distribution_id = di.distribution_id
+            inner join sys.dm_pdw_nodes_db_partition_stats nps on nt.object_id = nps.object_id
+            and nt.pdw_node_id = nps.pdw_node_id
+            and nt.distribution_id = nps.distribution_id
+            and i.index_id = nps.index_id
+            left outer join (select * from sys.pdw_column_distribution_properties where distribution_ordinal = 1) cdp on t.object_id = cdp.object_id
+            left outer join sys.columns c on cdp.object_id = c.object_id
+            and cdp.column_id = c.column_id
+          where
+            pn.type = 'COMPUTE'
+            and s.name = '{schema}'
+            and t.name = '{table}'
+        )
+        select
+          schema_name,
+          table_name,
+          sum(row_count) as table_row_count,
+          sum(data_space_mb) as table_size_mb
+        from table_size_base
+        group by all
+    """
+    print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
+    
+    spark.sql(f'use catalog {catalog}')
+    table_size_mb = spark.sql(table_size_qry).collect()[0]['table_size_mb']
+    
+    return table_size_mb
+
 def get_table_size_delta(catalog:str, schema:str, table:str) -> int:
     """Get Delta Lake table size
 
