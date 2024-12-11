@@ -51,7 +51,7 @@ resources:
         - name: partition_size_mb
           default: "256"
         - name: root_dir
-          default: /Workspace/${workspace.file_path}
+          default: ${workspace.file_path}
         - name: jdbc_config_file
           default: ""
         - name: tgt_ddl_file_path
@@ -75,7 +75,7 @@ resources:
             - task_key: get_batch_of_partitions
           for_each_task:
             inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
-            concurrency: 32
+            concurrency: 8
             task:
               task_key: run_query
               notebook_task:
