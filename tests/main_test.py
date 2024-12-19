@@ -87,7 +87,7 @@ def test_get_sql_ddl():
         catalog='main',
         schema='lakefed',
         table='lakefed_tgt',
-        partition_col='customer_id',
+        cluster_col='customer_id',
         root_dir=root_dir,
         file_path='tests/ddl_create_lakefed_tgt.txt',
     )

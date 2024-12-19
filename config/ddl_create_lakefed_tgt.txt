@@ -14,4 +14,4 @@ create or replace table {catalog}.{schema}.{table} (
   memo STRING,
   ts_col TIMESTAMP,
   date_col DATE)
-  CLUSTER BY ({partition_col})
+  CLUSTER BY ({cluster_col})
