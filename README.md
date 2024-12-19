@@ -79,3 +79,41 @@ and table_type = 'BASE TABLE';
 7. For documentation on the Databricks asset bundles format used
    for this project, and for CI/CD configuration, see
    https://docs.databricks.com/dev-tools/bundles/index.html.
+
+## Contributing
+
+**Create and Activate Virtual Environment**
+```
+$ python3 -m venv ./.venv
+```
+
+```
+$ source .venv/bin/activate
+```
+
+**Run Unit Tests**
+
+Databricks Connect is required to run some of the unit tests. 
+
+1. Install dependent packages:
+```
+$ pip install -r requirements-dev.txt
+```
+
+2. Run unit tests with pytest
+```
+$ pytest
+```
+
+If you run into this error:
+```
+ERROR tests/main_test.py - Exception: Cluster id or serverless are required but were not specified.
+```
+
+Add the cluster_id to your .databrickscfg file
+```
+[DEFAULT]
+host       = https://adb-XXXXXXXXXXXXXXX.XX.azuredatabricks.net/
+cluster_id = XXXX-XXXXXX-XXXXXXXX
+auth_type  = databricks-cli
+```

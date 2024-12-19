@@ -26,12 +26,12 @@ def get_spark() -> SparkSession:
 spark = get_spark()
 dbutils = DBUtils(spark)
 
-def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, root_dir:str, file_path:str) -> str:
+def get_sql_ddl(catalog:str, schema:str, table:str, cluster_col:str, root_dir:str, file_path:str) -> str:
     """Get SQL DDL to create target table
     
     Placeholders in DDL text are replaced so that object identifiers
-    don't need to be hard coded, and therefore managed in multiple
-    places.
+    don't need to be hard coded. This enables single-sourcing object
+    identifiers and reusing the solution without modifying code.
     
     String replacement solution source
     https://stackoverflow.com/a/6117124
@@ -40,7 +40,7 @@ def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, root_dir:
         catalog (str): Catalog name
         schema (str): Schema name
         table (str): Table name
-        partition_col (str): Column used to partition the table
+        cluster_col (str): Column used to cluster the target table
         root_dir (str): Root directory for project files
         file_path (str): Path of config file relative to project root (config/ddl_create_lakefed_tgt.txt)
     
@@ -53,8 +53,8 @@ def get_sql_ddl(catalog:str, schema:str, table:str, partition_col:str, root_dir:
     with open(file_path_full) as f:
         sql_ddl = f.read()
     
-    # Define string replacements here
-    rep = {'{catalog}': catalog, '{schema}': schema, '{table}': table, '{partition_col}': partition_col}
+    # Define string replacements
+    rep = {'{catalog}': catalog, '{schema}': schema, '{table}': table, '{cluster_col}': cluster_col}
     
     # Perform string replacement
     rep = dict((re.escape(k), v) for k, v in rep.items()) 
