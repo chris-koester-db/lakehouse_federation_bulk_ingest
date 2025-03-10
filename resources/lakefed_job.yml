@@ -41,11 +41,11 @@ resources:
         - name: src_type
           default: postgresql
         - name: src_catalog
-          default: ckoester_postgresql
+          default: lakefed_bulk_ingest_src
         - name: src_schema
           default: public
         - name: src_table
-          default: lakefed_src_10m
+          default: lakefed_src
         - name: partition_col
           default: customer_id
         - name: partition_size_mb
@@ -57,9 +57,9 @@ resources:
         - name: tgt_ddl_file_path
           default: config/ddl_create_lakefed_tgt.txt
         - name: tgt_catalog
-          default: main
+          default: lakefed_bulk_ingest
         - name: tgt_schema
-          default: chris_koester
+          default: default
         - name: tgt_table
           default: lakefed_tgt
     lakehouse_federation_ingest_lvl2:

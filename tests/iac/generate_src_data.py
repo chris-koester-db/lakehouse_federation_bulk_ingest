@@ -4,17 +4,19 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install dbldatagen==0.3.5
+# MAGIC %pip install dbldatagen==0.4.0
 
 # COMMAND ----------
 
-import dbldatagen as dg
+# MAGIC %restart_python
 
 # COMMAND ----------
 
-dbutils.widgets.text('catalog', 'main', '01 Catalog')
-dbutils.widgets.text('schema', 'chris_koester', '02 Schema')
-dbutils.widgets.text('src_table', 'partitioned_queries_src', '03 Source Table')
+dbutils.widgets.text('catalog', 'lakefed_bulk_ingest', '01 Catalog')
+dbutils.widgets.text('schema', 'default', '02 Schema')
+dbutils.widgets.text('src_table', 'lakefed_src', '03 Source Table')
+dbutils.widgets.text('row_count', '25000000', '04 Row Count')
+dbutils.widgets.text('partitions', '32', '05 Partitions')
 
 # COMMAND ----------
 
@@ -77,20 +79,8 @@ spark.sql(f'create schema if not exists {schema}')
 
 # Set partitions to 1x or 2x number of cores
 dataspec = create_dataspec(row_count=25_000_000, partitions=32)
-dataspec.build().createOrReplaceTempView('src_vw')
-display(spark.sql('select * from src_vw'))
-
-# COMMAND ----------
-
-# DBTITLE 1,Create Table
-qry = f"""create or replace table {catalog}.{schema}.{src_table}
-cluster by (customer_id)
-as select * from src_vw
-"""
-
-print(qry)
-
-spark.sql(qry)
+df = dataspec.build()
+df.writeTo(f"{catalog}.{schema}.{src_table}").using("delta").clusterBy("customer_id").createOrReplace()
 
 # COMMAND ----------
 
