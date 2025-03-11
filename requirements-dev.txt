@@ -37,3 +37,6 @@ jsonschema==4.23.0
 
 ## Databricks SDK. Used for managing secrets in notebooks/manage_secrets.ipynb
 databricks-sdk==0.34.0
+
+## Databricks Labs data generator
+dbldatagen==0.4.0.post1
