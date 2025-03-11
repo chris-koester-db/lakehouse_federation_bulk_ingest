@@ -3,38 +3,27 @@ resources:
     lakehouse_federation_ingest_lvl1:
       name: "Lakehouse Federation Ingest Lvl1"
       tasks:
-        - task_key: get_partition_list
+        - task_key: config
           notebook_task:
-            notebook_path: ../notebooks/get_partition_list.ipynb
+            notebook_path: ../notebooks/config.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
           libraries:
             - whl: ../dist/*.whl
-        - task_key: create_tgt_table
-          depends_on:
-            - task_key: get_partition_list
-          notebook_task:
-            notebook_path: ../notebooks/create_tgt_table.ipynb
-            base_parameters:
-              catalog: "{{job.parameters.tgt_catalog}}"
-              schema: "{{job.parameters.tgt_schema}}"
-              tgt_table: "{{job.parameters.tgt_table}}"
-            source: WORKSPACE
-          existing_cluster_id: ${var.existing_cluster_id}
         - task_key: foreach_batch
           depends_on:
-            - task_key: create_tgt_table
+            - task_key: config
           for_each_task:
-            inputs: "{{tasks.get_partition_list.values.batch_list}}"
+            inputs: "{{tasks.config.values.batch_list}}"
             concurrency: 1
             task:
-              task_key: run_lvl2_pipeline
+              task_key: run_batch_of_queries
               run_job_task:
                 job_id: ${resources.jobs.lakehouse_federation_ingest_lvl2.id}
                 job_parameters:
                   batch_id: "{{input}}"
       tags:
-        dev: chris_koester
+        workload: lakefed_bulk_ingest
       queue:
         enabled: false
       parameters:
@@ -65,16 +54,16 @@ resources:
     lakehouse_federation_ingest_lvl2:
       name: "Lakehouse Federation Ingest Lvl2"
       tasks:
-        - task_key: get_batch_of_partitions
+        - task_key: get_partitions
           notebook_task:
-            notebook_path: ../notebooks/get_batch_of_partitions.ipynb
+            notebook_path: ../notebooks/get_partitions.ipynb
             source: WORKSPACE
           existing_cluster_id: ${var.existing_cluster_id}
         - task_key: foreach_partition
           depends_on:
-            - task_key: get_batch_of_partitions
+            - task_key: get_partitions
           for_each_task:
-            inputs: "{{tasks.get_batch_of_partitions.values.batch_of_partitions}}"
+            inputs: "{{tasks.get_partitions.values.batch_of_partitions}}"
             concurrency: 8
             task:
               task_key: run_query
@@ -87,7 +76,7 @@ resources:
               max_retries: 3
               min_retry_interval_millis: 0
       tags:
-        dev: chris_koester
+        workload: lakefed_bulk_ingest
       queue:
         enabled: false
       parameters:

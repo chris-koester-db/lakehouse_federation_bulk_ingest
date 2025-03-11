@@ -9,7 +9,7 @@ include:
 variables:
   existing_cluster_id:
     description: The ID of an existing cluster
-    default: 0118-165440-l8erfx3g
+    default: 0306-174022-2nk9jycz
   existing_warehouse_id:
     description: The ID of an existing warehouse
     default: a50b6f1c6dc8d58c
