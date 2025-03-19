@@ -1,8 +1,8 @@
 {
-    "host": "ckoester.postgres.database.azure.com",
+    "host": "lakefed.postgres.database.azure.com",
     "port": "5432",
     "database": "postgres",
-    "secret_scope": "chris_koester",
+    "secret_scope": "lakefed_scope",
     "secret_key_user": "jdbc_user",
     "secret_key_pwd": "jdbc_pwd"
 }
