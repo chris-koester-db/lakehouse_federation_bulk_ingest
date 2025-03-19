@@ -131,7 +131,7 @@ def get_jdbc_config(root_dir:str, file_path:str) -> dict:
 
     return config
 
-def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
+def _get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     """Get size of SQL Server table in MB
     
     Args:
@@ -167,7 +167,7 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_oracle(catalog:str, schema:str, table:str) -> int:
+def _get_table_size_oracle(catalog:str, schema:str, table:str) -> int:
     """Get size of Oracle table in MB
 
     Requires permission to read the sys.dba_segments table
@@ -194,7 +194,7 @@ def get_table_size_oracle(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_postgresql(
+def _get_table_size_postgresql(
     catalog: str,
     schema: str,
     table: str,
@@ -279,7 +279,7 @@ def get_table_size_postgresql(
     
     return table_size_mb
 
-def get_table_size_redshift(catalog:str, schema:str, table:str) -> int:
+def _get_table_size_redshift(catalog:str, schema:str, table:str) -> int:
     """Get Redshift table size
     
     Args:
@@ -304,7 +304,7 @@ def get_table_size_redshift(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_synapse(catalog:str, schema:str, table:str) -> int:
+def _get_table_size_synapse(catalog:str, schema:str, table:str) -> int:
     """Get Synapse table size
     
     Args:
@@ -377,7 +377,7 @@ def get_table_size_synapse(catalog:str, schema:str, table:str) -> int:
     
     return table_size_mb
 
-def get_table_size_delta(catalog:str, schema:str, table:str) -> int:
+def _get_table_size_delta(catalog:str, schema:str, table:str) -> int:
     """Get Delta Lake table size
 
     A Delta source is intended only for testing
@@ -393,6 +393,42 @@ def get_table_size_delta(catalog:str, schema:str, table:str) -> int:
     
     table_size_in_bytes = spark.sql(f'desc detail {catalog}.{schema}.{table}').collect()[0]['sizeInBytes']
     table_size_mb = table_size_in_bytes / 1024 / 1024
+    return table_size_mb
+
+def get_table_size(catalog:str, schema:str, table:str, src_type:str, root_dir:str, jdbc_config_file:Optional[str]=None) -> int:
+    """Get source table size
+    
+    Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+        src_type (str): Source system type (SQL Server, PostgreSQL, etc.)
+        root_dir (str): Directory containing the JDBC config file
+        jdbc_config_file (str): File containing JDBC configs (host, database, etc.)
+    
+    Returns:
+        int: Source table size in MB
+    """
+    
+    table_size_mb = 0
+    
+    if src_type == 'sqlserver':
+        table_size_mb = _get_table_size_sqlserver(catalog, schema, table)
+    elif src_type == 'oracle':
+        table_size_mb = _get_table_size_oracle(catalog, schema, table)
+    elif src_type == 'postgresql':
+        table_size_mb = _get_table_size_postgresql(catalog, schema, table, root_dir, jdbc_config_file)
+    elif src_type == 'redshift':
+        table_size_mb = _get_table_size_redshift(catalog, schema, table)
+    elif src_type == 'synapse':
+        table_size_mb = _get_table_size_synapse(catalog, schema, table)
+    elif src_type == 'delta':
+        table_size_mb = _get_table_size_delta(catalog, schema, table)
+    else:
+        raise ValueError(f'Unsupported src_type: {src_type}')
+    
+    print(f'Table size MB: {table_size_mb}')
+
     return table_size_mb
 
 def get_internal_bound_value(bound_value) -> int:
