@@ -13,8 +13,6 @@ partition_list_expected_int = [
     {'id': 4, 'where_clause': 'customer_id >= 797'}
 ]
 
-# TODO add test data for float / decimal
-
 partition_list_expected_dt = [
     {'id': 0, 'where_clause': "dt_col < '2024-01-19 04:47:11' or dt_col is null"},
     {'id': 1, 'where_clause': "dt_col >= '2024-01-19 04:47:11' and dt_col < '2024-02-06 09:34:22'"},
@@ -37,7 +35,6 @@ partition_list_expected_date = [
         ('customer_id', 1, 1000, 5, partition_list_expected_int),
         ('dt_col', datetime(2024, 1, 1), datetime(2024, 3, 31, 23, 55, 59, 342380), 5, partition_list_expected_dt),
         ('date_col', datetime(2024, 1, 1).date(), datetime(2024, 3, 31).date(), 5, partition_list_expected_date)
-        # TODO run test for float / decimal
     ]
 )
 def test_get_partition_list(partition_col,lower_bound,upper_bound,num_partitions,expected):
