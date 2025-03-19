@@ -10,6 +10,7 @@ import textwrap
 import pprint
 import pyspark.sql.functions as F
 from pyspark.sql import Window
+from decimal import Decimal
 import math
 import json
 import os
@@ -131,7 +132,7 @@ def get_jdbc_config(root_dir:str, file_path:str) -> dict:
     return config
 
 def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
-    """Get SQL Server table size
+    """Get size of SQL Server table in MB
     
     Args:
         catalog (str): Catalog name
@@ -158,6 +159,33 @@ def get_table_size_sqlserver(catalog:str, schema:str, table:str) -> int:
           AND i.object_id > 255
         GROUP BY
           s.Name, t.Name
+    """
+    print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
+    
+    spark.sql(f'use catalog {catalog}')
+    table_size_mb = spark.sql(table_size_qry).collect()[0]['table_size_mb']
+    
+    return table_size_mb
+
+def get_table_size_oracle(catalog:str, schema:str, table:str) -> int:
+    """Get size of Oracle table in MB
+
+    Requires permission to read the sys.dba_segments table
+    
+    Args:
+        catalog (str): Catalog name
+        schema (str): Schema name
+        table (str): Table name
+    
+    Returns:
+        int: Size of Oracle table in MB
+    """
+    
+    table_size_qry = f"""\
+        select
+          bytes/1024/1024 as table_size_mb
+        from sys.dba_segments
+        where owner = '{schema.upper()}' and segment_name='{table.upper()}'
     """
     print(f'Query used to get table size:\n{textwrap.dedent(table_size_qry)}')
     
@@ -377,11 +405,10 @@ def get_internal_bound_value(bound_value) -> int:
         Numeric representation of bound value
     """
     
-    if isinstance(bound_value, int):
-        pass
+    if isinstance(bound_value, (int, float, Decimal)):
+        bound_value = int(bound_value)
     elif isinstance(bound_value, datetime):
         bound_value = int(bound_value.replace(tzinfo=timezone.utc).timestamp())
-        #bound_value = int(datetime.timestamp(bound_value)) #dt.replace(tzinfo=timezone.utc)
     elif isinstance(bound_value, date):
         dt_bound_value = datetime(
             year=bound_value.year,
@@ -390,7 +417,7 @@ def get_internal_bound_value(bound_value) -> int:
         )
         bound_value = int(dt_bound_value.replace(tzinfo=timezone.utc).timestamp())
     else:
-        raise ValueError(f'Unsupported data type: {type(bound_value)}. Only int, date, and datetime are supported')
+        raise ValueError(f'Unsupported data type: {type(bound_value)}. Only numeric, date, and datetime are supported')
 
     return bound_value
 
@@ -405,7 +432,7 @@ def bound_value_to_str(bound_value:int, bound_value_orig) -> str:
         String representation of bound value
     """
 
-    if isinstance(bound_value_orig, int):
+    if isinstance(bound_value_orig, (int, float, Decimal)):
         bound_value_str = str(bound_value)
     elif isinstance(bound_value_orig, datetime):
         bound_value_str = f"'{datetime.fromtimestamp(bound_value, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}'"

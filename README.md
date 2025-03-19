@@ -6,14 +6,17 @@ Provides a mechanism for ingesting large tables into Databricks via [Lakehouse F
 
 ## Getting Started
 
-**Setup Lakehouse Federation**   
+**Setup Lakehouse Federation**  
 Follow the [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html) instructions to create a connection and foreign catalog.
 
 **Add Create Statement for Target Table**  
 Add create table statement to text file as shown in [config/ddl_create_lakefed_tgt.txt](config/ddl_create_lakefed_tgt.txt). Placeholders in the statement are replaced with job parameters during runtime, so that these values only need to be specified once. Use the path to the file as the value for the `tgt_ddl_file_path` job parameter.
 
+**Oracle Configuration**  
+Ingesting from Oracle requires permission to read the sys.dba_segments table. This is to obtain the source table size.
+
 **PostgreSQL Configuration**  
-The number of queries used for ingestion is determined in part by the size of the source table. Since Lakehouse Federation doesn't currently support PostgreSQL object size functions (E.g., pg_table_size), you need to create a view in the source database or use JDBC pushdown.
+The number of queries used for ingestion is determined in part by the size of the source table. Since Lakehouse Federation doesn't currently support PostgreSQL object size functions (E.g., pg_table_size), you need to create a view in the source database or use JDBC pushdown. Creating a view in the source database is recommended.
 
 1. Database view - create a view in the source database using the statement below. Leave the `jdbc_config_file` job parameter blank, and the view will be queried using Lakehouse Federation.
 
