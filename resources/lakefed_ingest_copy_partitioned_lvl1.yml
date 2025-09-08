@@ -30,7 +30,7 @@ resources:
           depends_on:
             - task_key: create_sink_table
           notebook_task:
-            notebook_path: /Workspace/Users/chris.koester@databricks.com/lakefed_ingest/src/lakefed_ingest/generate_partitions
+            notebook_path: ../src/lakefed_ingest/generate_partitions
             base_parameters:
               partition_col: "{{tasks.get_task.output.first_row.partition_col}}"
               partition_size_mb: "{{tasks.get_task.output.first_row.partition_size_mb}}"
@@ -44,7 +44,7 @@ resources:
             source: WORKSPACE
           existing_cluster_id: ${var.cluster_id}
           libraries:
-            - whl: /Workspace/Users/chris.koester@databricks.com/.bundle/lakefed_ingest/dev/artifacts/.internal/lakefed_ingest-0.0.1+20250903.145732-py3-none-any.whl
+            - whl: ../dist/*.whl
           description: Gets partitions Sets taskValues used by foreach_partition
         - task_key: foreach_batch
           depends_on:
