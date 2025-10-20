@@ -1,5 +1,8 @@
 # Lakehouse Federation Ingestion
 
+> [!NOTE]
+> Repo has been moved to [https://github.com/databricks-solutions/lakefed-ingest](https://github.com/databricks-solutions/lakefed-ingest)
+
 Metadata-driven framework for ingesting data into Databricks using [Lakehouse Federation](https://docs.databricks.com/en/query-federation/index.html). Supports the following ingestion patterns:
 - **Full**: ingests entire table
 - **Incremental**: ingests incrementally using watermarks
